@@ -30,6 +30,7 @@ pipeline {
                 sh '''
                 cd ../
                 pwd
+                ls -la
                 '''
             }
         }
