@@ -25,16 +25,6 @@ pipeline {
                 '''
             }
         }
-        stage('test'){
-            steps {
-                sh '''
-                cd ../
-                pwd
-                ls -la
-                rm -rf fastapi-ci
-                '''
-            }
-        }
     }
 
     post {
