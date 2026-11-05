@@ -52,13 +52,13 @@ pipeline {
                         unset AUTH
 
                         buildctl \
-                          --addr "$BUILDKIT_HOST" \
-                          build \
-                          --frontend dockerfile.v0 \
-                          --local context=. \
-                          --local dockerfile=. \
-                          --opt platform=linux/amd64 \
-                          --output "type=image,name=$IMAGE:$BUILD_NUMBER,$IMAGE:latest,push=true"
+  --addr "$BUILDKIT_HOST" \
+  build \
+  --frontend dockerfile.v0 \
+  --local context=. \
+  --local dockerfile=. \
+  --opt platform=linux/amd64 \
+  --output "type=image,\"name=$IMAGE:$BUILD_NUMBER,$IMAGE:latest\",push=true"
                     '''
                 }
             }
