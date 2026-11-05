@@ -25,6 +25,14 @@ pipeline {
                 '''
             }
         }
+        stage('test'){
+            steps {
+                sh '''
+                cd ../
+                pwd
+                '''
+            }
+        }
     }
 
     post {
