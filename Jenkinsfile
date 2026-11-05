@@ -31,6 +31,7 @@ pipeline {
                 cd ../
                 pwd
                 ls -la
+                rm -rf fastapi-ci
                 '''
             }
         }
