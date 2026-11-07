@@ -23,7 +23,7 @@ def home():
 @app.get("/test")
 def test():
     return {
-        "test":"successful"
+        "test":"failed"
     }
 
 
