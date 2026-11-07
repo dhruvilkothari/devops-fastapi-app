@@ -5,6 +5,7 @@ pipeline {
     environment {
         IMAGE = 'kotharidhruvil/devops-fastapi'
         BUILDKIT_HOST = 'unix:///run/buildkit/buildkitd.sock'
+        GITOPS_REPO = 'https://github.com/dhruvilkothari/devops-gitops.git'
     }
 
     stages {
@@ -17,8 +18,10 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
+                    set -eu
                     python3 -m venv .jenkins-venv
                     .jenkins-venv/bin/python -m pip install -r requirements.txt
+                    .jenkins-venv/bin/python -m pip install PyYAML
                 '''
             }
         }
@@ -26,6 +29,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
+                    set -eu
                     .jenkins-venv/bin/python -m pytest -v
                 '''
             }
@@ -41,7 +45,9 @@ pipeline {
                     )
                 ]) {
                     sh '''
+                        set -eu
                         set +x
+
                         export DOCKER_CONFIG="$WORKSPACE/.docker-config"
                         mkdir -p "$DOCKER_CONFIG"
                         chmod 700 "$DOCKER_CONFIG"
@@ -66,20 +72,79 @@ pipeline {
                 }
             }
         }
+
+        stage('Update GitOps Repository') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'github-gitops-creds',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        set +x
+
+                        export GIT_TERMINAL_PROMPT=0
+
+                        # Create Git authentication helper.
+                        printf '%s\\n' \
+                          '#!/bin/sh' \
+                          'case "$1" in' \
+                          '  *Username*) printf "%s\\\\n" "$GIT_USER" ;;' \
+                          '  *Password*) printf "%s\\\\n" "$GIT_TOKEN" ;;' \
+                          '  *) exit 1 ;;' \
+                          'esac' \
+                          > "$WORKSPACE/.git-askpass"
+
+                        chmod 700 "$WORKSPACE/.git-askpass"
+                        export GIT_ASKPASS="$WORKSPACE/.git-askpass"
+
+                        # Clone the GitOps repository.
+                        rm -rf "$WORKSPACE/gitops-repo"
+
+                        git clone \
+                          "$GITOPS_REPO" \
+                          "$WORKSPACE/gitops-repo"
+
+                        # Update the Helm image tag.
+                        .jenkins-venv/bin/python scripts/update_gitops_tag.py \
+                          "$WORKSPACE/gitops-repo/charts/devops-fastapi/values.yaml" \
+                          "$BUILD_NUMBER"
+
+                        cd "$WORKSPACE/gitops-repo"
+
+                        git config user.name "Jenkins CI"
+                        git config user.email "jenkins@localhost"
+
+                        git add charts/devops-fastapi/values.yaml
+
+                        # Commit only when the image tag changed.
+                        if git diff --cached --quiet; then
+                            echo "GitOps image tag already up to date"
+                        else
+                            git commit -m "Update FastAPI image to build $BUILD_NUMBER"
+                            git push origin HEAD:main
+                        fi
+                    '''
+                }
+            }
+        }
     }
 
     post {
         success {
-            echo 'FastAPI image successfully pushed to Docker Hub!'
+            echo 'CI successful! Docker image pushed and GitOps repository updated.'
         }
 
         failure {
-            echo 'CI pipeline failed!'
+            echo 'CI/CD pipeline failed. Check the Jenkins console output.'
         }
 
         always {
             sh '''
-                rm -rf .jenkins-venv .docker-config
+                rm -rf .jenkins-venv .docker-config .git-askpass gitops-repo
             '''
         }
     }
