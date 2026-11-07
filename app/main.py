@@ -20,6 +20,12 @@ def home():
         "status": "running"
     }
 
+@app.get("/test")
+def test():
+    return {
+        "test":"successful"
+    }
+
 
 @app.get("/health/live")
 def liveness():
